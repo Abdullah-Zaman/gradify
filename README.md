@@ -5,17 +5,16 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **An automated Final Year Project (FYP) management and monitoring system for universities.**
 
 ## Overview
 
-Gradify digitizes the entire Final Year Project lifecycle from group formation to final scoring replacing the spreadsheets, email threads, and physical sign-off sheets that most Computer Science / Software Engineering departments rely on. Students form groups and invite teammates, rank supervisor preferences, submit proposals, and complete weekly tasks, all from one dashboard. Supervisors assign and review tasks, run Minutes of Meeting (MOM), and track every group they're responsible for. Managers oversee their university's entire FYP pipeline students, supervisors, groups, proposals, and reporting while a Super Admin runs the platform across multiple universities at once.
+Gradify digitizes the entire Final Year Project lifecycle from group formation to final scoring, replacing the spreadsheets, email threads, and physical sign-off sheets that most Computer Science / Software Engineering departments rely on. Students form groups and invite teammates, rank supervisor preferences, submit proposals, and complete weekly tasks, all from one dashboard. Supervisors assign and review tasks, run Minutes of Meeting (MOM), and track every group they're responsible for. Managers oversee their university's entire FYP pipeline (students, supervisors, groups, proposals, and reporting), while a Super Admin runs the platform across multiple universities at once.
 
-The system is built as a multi-tenant, role-based platform: every university operates independently within Gradify, with its own departments, programs, academic sessions, and users, while a single Super Admin account can configure and monitor all of them. Security and accountability are built in from the ground up rate-limited authentication, hashed credentials, a full audit trail of sensitive actions, and forced password resets on first login so the platform is safe to operate as the system of record for real academic data.
+The system is built as a multi-tenant, role-based platform: every university operates independently within Gradify, with its own departments, programs, academic sessions, and users, while a single Super Admin account can configure and monitor all of them. Security and accountability are built in from the ground up: rate-limited authentication, hashed credentials, a full audit trail of sensitive actions, and forced password resets on first login so the platform is safe to operate as the system of record for real academic data.
 
-Beyond the core workflow, Gradify layers in automation that saves staff time: bulk student onboarding from Excel/CSV with smart column detection, automatic FYP ID generation tied to the active semester, and a weekly cron job that pulls each student's GitHub activity so supervisors can see real engagement not just self-reported status updates.
+Beyond the core workflow, Gradify layers in automation that saves staff time: bulk student onboarding from Excel/CSV with smart column detection, automatic FYP ID generation tied to the active semester, and a weekly cron job that pulls each student's GitHub activity so supervisors can see real engagement, not just self-reported status updates.
 
 ## ✨ Key Features
 
@@ -67,7 +66,7 @@ Beyond the core workflow, Gradify layers in automation that saves staff time: bu
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Abdullah4506878/gradify.git
+   git clone https://github.com/Abdullah-Zaman/gradify.git
    cd gradify
    ```
 
@@ -174,14 +173,33 @@ gradify/
 
 ## 📸 Screenshots
 
-> _Coming soon._
+**Super Admin dashboard**
+![Super Admin dashboard](docs/screenshots/01-super-admin-dashboard.png)
+
+**Supervisor reviewing a task, member by member**
+![Supervisor task review](docs/screenshots/02-supervisor-task-review.png)
+
+**Student task list with weekly Friday deadlines**
+![Student tasks](docs/screenshots/03-student-tasks.png)
+
+**Bulk student import from Excel**
+![Excel bulk import](docs/screenshots/04-excel-bulk-import.png)
+
+**Manager view of registered groups**
+![Manager groups](docs/screenshots/05-manager-groups.png)
+
+**Student dashboard on mobile**
+
+<img src="docs/screenshots/06-mobile-student-dashboard.png" alt="Mobile student dashboard" width="300">
 
 ## 👨‍💻 Author
 
 **Abdullah Zaman** — Full Stack Developer
-- GitHub: [github.com/Abdullah4506878](https://github.com/Abdullah4506878)
+- GitHub: [github.com/Abdullah-Zaman](https://github.com/Abdullah-Zaman)
 - University: The Superior University, Lahore
 
-## 📄 License
+## 📄 License & Copyright
 
-This project is licensed under the **MIT License**.
+Copyright (c) 2026 Abdullah Zaman. All rights reserved.
+
+The source code is public so it can be viewed and reviewed. It may not be copied, modified, distributed or used in other projects without written permission from the author.
