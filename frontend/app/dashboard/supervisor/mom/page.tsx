@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -60,7 +60,7 @@ function SkeletonRow() {
   );
 }
 
-export default function MOMListPage() {
+function MOMListPageContent() {
   const searchParams = useSearchParams();
   const groupIdFilter = searchParams.get('groupId');
 
@@ -272,5 +272,15 @@ export default function MOMListPage() {
         </table>
       </div>
     </DashboardLayout>
+  );
+}
+
+// useSearchParams() must sit under a Suspense boundary or `next build` fails
+// prerendering this route (missing-suspense-with-csr-bailout).
+export default function MOMListPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" /></div>}>
+      <MOMListPageContent />
+    </Suspense>
   );
 }

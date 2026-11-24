@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import api from '@/lib/api';
 import { useAuthStore, type AuthUser } from '@/lib/auth';
+import { hasAuthCookie } from '@/lib/cookies';
 
 const schema = z.object({
   role: z.enum(['STUDENT', 'SUPERVISOR', 'MANAGER'], {
@@ -64,6 +65,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const logout = useAuthStore((s) => s.logout);
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [checking, setChecking] = useState(true);
@@ -79,6 +81,14 @@ export default function LoginPage() {
         return u ? JSON.parse(u) : null;
       } catch { return null; }
     })();
+    // The edge proxy only trusts the auth_token cookie. If localStorage has a
+    // session but the cookie is gone/expired, redirecting would bounce straight
+    // back here (spinner forever), so drop the stale session and show the form.
+    if (stored && storedUser?.role && !hasAuthCookie()) {
+      logout();
+      setChecking(false);
+      return;
+    }
     if (stored && storedUser?.role) {
       if (storedUser.isFirstLogin && (storedUser.role === 'STUDENT' || storedUser.role === 'SUPERVISOR')) {
         router.replace('/change-password');

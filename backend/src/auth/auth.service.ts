@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { getJwtSecrets } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -45,6 +46,22 @@ export class AuthService {
         ipAddress,
       });
       throw new UnauthorizedException('Invalid credentials for selected role');
+    }
+
+    if (!user.isActive) {
+      await this.auditService.log({
+        userId: user.id,
+        userEmail: user.email,
+        role: user.role,
+        action: 'LOGIN_FAILED',
+        entity: 'AUTH',
+        entityId: user.id,
+        details: 'Account suspended',
+        ipAddress,
+      });
+      throw new ForbiddenException(
+        'Your account has been suspended. Please contact your administrator.',
+      );
     }
 
     const tokens = await this.issueTokens(user.id, user.email, user.role);
@@ -107,7 +124,7 @@ export class AuthService {
     let payload: { sub: number; email: string; role: string };
     try {
       payload = await this.jwtService.verifyAsync(rawRefreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET ?? 'refresh-secret',
+        secret: getJwtSecrets().refreshSecret,
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
@@ -115,6 +132,12 @@ export class AuthService {
 
     const user = await this.usersService.findById(payload.sub);
     if (!user?.refreshToken) throw new UnauthorizedException();
+
+    if (!user.isActive) {
+      // Revoke the stored refresh token so the suspended session cannot be renewed.
+      await this.usersService.updateRefreshToken(user.id, null);
+      throw new UnauthorizedException('Your account has been suspended');
+    }
 
     const valid = await bcrypt.compare(rawRefreshToken, user.refreshToken);
     if (!valid) throw new UnauthorizedException('Refresh token mismatch');
@@ -133,13 +156,14 @@ export class AuthService {
 
   private async issueTokens(userId: number, email: string, role: Role) {
     const payload = { sub: userId, email, role };
+    const { accessSecret, refreshSecret } = getJwtSecrets();
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_SECRET ?? 'secret',
+        secret: accessSecret,
         expiresIn: '15m' as any,
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET ?? 'refresh-secret',
+        secret: refreshSecret,
         expiresIn: '7d' as any,
       }),
     ]);

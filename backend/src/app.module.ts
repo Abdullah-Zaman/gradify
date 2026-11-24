@@ -26,7 +26,10 @@ import { SettingsModule } from './settings/settings.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60000, limit: 100 }],
+      errorMessage: 'Too many attempts. Please wait a few minutes and try again.',
+    }),
     PrismaModule,
     AuditModule,
     AdminModule,

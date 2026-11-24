@@ -1,0 +1,63 @@
+# Production stack: postgres + backend + frontend.
+# Usage (from the repo root):
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# nginx on the host proxies the domain to 127.0.0.1:3000 (frontend) and
+# 127.0.0.1:4000 (backend, under /api). See DEPLOY.md and deploy/nginx.conf.
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No published port: only reachable from the backend on the internal network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # POSTGRES_PASSWORD must be URL-safe (letters/digits) because it is embedded here.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET:?set in .env.prod}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set in .env.prod}
+      FRONTEND_URL: ${FRONTEND_URL:?set in .env.prod}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+      MANAGER_EMAIL: ${MANAGER_EMAIL:-}
+      MANAGER_PASSWORD: ${MANAGER_PASSWORD:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "127.0.0.1:4000:4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set in .env.prod}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  postgres_data:
+  uploads:

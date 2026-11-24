@@ -1,20 +1,32 @@
+// Creates the SUPER_ADMIN account. Credentials come from .env:
+//   SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const bcrypt = require('bcryptjs');
 
-const adapter = new PrismaPg({
-  connectionString: 'postgresql://postgres:gradify123@localhost:5432/gradify',
-});
+function requireEnv(name) {
+  const value = process.env[name] && process.env[name].trim();
+  if (!value) {
+    console.error(`Missing required environment variable: ${name}`);
+    process.exit(1);
+  }
+  return value;
+}
+
+const adapter = new PrismaPg({ connectionString: requireEnv('DATABASE_URL') });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = 'admin@gradify.com';
+  const email = requireEnv('SUPER_ADMIN_EMAIL');
+  const password = requireEnv('SUPER_ADMIN_PASSWORD');
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     console.log('Super Admin already exists:', existing.email);
     return;
   }
-  const hash = await bcrypt.hash('optimse@prime123', 12);
+  const hash = await bcrypt.hash(password, 12);
   const admin = await prisma.user.create({
     data: {
       email,
@@ -27,5 +39,5 @@ async function main() {
 }
 
 main()
-  .catch((err) => { console.error(err); process.exit(1); })
+  .catch((err) => { console.error(err); process.exitCode = 1; })
   .finally(() => prisma.$disconnect());

@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import api from '@/lib/api';
+import api, { fileUrl as backendFileUrl } from '@/lib/api';
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard/supervisor', icon: LayoutDashboard },
@@ -506,7 +506,7 @@ export default function SupervisorTasksPage() {
                           <div className="bg-gray-50 px-4 py-3 space-y-2">
                             {submission.fileUrl && (
                               <a
-                                href={`http://localhost:4000/uploads/${submission.fileUrl.replace('/uploads/', '')}`}
+                                href={backendFileUrl(submission.fileUrl)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3.5 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"

@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EnrollmentStatus, FypRole, GroupStatus, InviteStatus, Phase, ProposalStatus, Role } from '@prisma/client';
+import { EnrollmentStatus, FypRole, GroupStatus, InviteStatus, Phase, Prisma, ProposalStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { AdminService } from '../admin/admin.service';
@@ -51,14 +51,27 @@ export class GroupsService {
       throw new BadRequestException('Active session has no FYP-1 phase configured.');
     }
 
-    const group = await this.prisma.group.create({
-      data: {
-        phaseId: fyp1Phase.id,
-        universityId,
-        leaderId,
-        members: { create: { userId: leaderId } },
-      },
-      include: GROUP_INCLUDE,
+    // Check-and-create in one serializable transaction so a double submit
+    // cannot slip two groups past the "already enrolled" check.
+    const group = await this.runSerializable(async (tx) => {
+      const activeEnrollment = await tx.enrollment.findFirst({
+        where: { userId: leaderId, status: EnrollmentStatus.ACTIVE },
+        include: { group: { select: { id: true, fypId: true } } },
+      });
+      if (activeEnrollment) {
+        const fypId = activeEnrollment.group?.fypId ?? `#${activeEnrollment.groupId}`;
+        throw new ConflictException(`You are already part of a group. Your FYP ID: ${fypId}`);
+      }
+
+      return tx.group.create({
+        data: {
+          phaseId: fyp1Phase.id,
+          universityId,
+          leaderId,
+          members: { create: { userId: leaderId } },
+        },
+        include: GROUP_INCLUDE,
+      });
     });
 
     await this.auditService.log({
@@ -73,6 +86,24 @@ export class GroupsService {
     });
 
     return group;
+  }
+
+  /**
+   * Runs `fn` in a SERIALIZABLE transaction. If Postgres aborts it because a
+   * concurrent request touched the same rows (P2034), the caller gets a 409
+   * and can simply retry.
+   */
+  private async runSerializable<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.prisma.$transaction(fn, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034') {
+        throw new ConflictException('Another change was made at the same time. Please try again.');
+      }
+      throw err;
+    }
   }
 
   findAll(user: { id: number; role: Role }) {
@@ -337,18 +368,47 @@ export class GroupsService {
   async assignSupervisor(groupId: number, supervisorId: number) {
     const group = await this.findOne(groupId);
 
-    // Replace all existing preferences with the manager's assignment
-    await this.prisma.supervisorPreference.deleteMany({ where: { groupId } });
-    await this.prisma.supervisorPreference.create({
-      data: { groupId, supervisorId, preference: 1 },
-    });
-    await this.prisma.group.update({ where: { id: groupId }, data: { supervisorAssigned: true } });
+    const supervisor = await this.runSerializable(async (tx) => {
+      const sup = await tx.user.findUnique({
+        where: { id: supervisorId },
+        select: { id: true, name: true, email: true, role: true, isActive: true, maxGroups: true, universityId: true },
+      });
+      if (!sup || sup.role !== Role.SUPERVISOR) {
+        throw new NotFoundException('Supervisor not found');
+      }
+      if (!sup.isActive) {
+        throw new BadRequestException('This supervisor account is suspended');
+      }
+      if (sup.universityId != null && sup.universityId !== group.universityId) {
+        throw new BadRequestException('Supervisor belongs to a different university');
+      }
 
-    const supervisor = await this.prisma.user.findUnique({
-      where: { id: supervisorId },
-      select: { name: true, email: true },
+      // "Assigned groups" = rank-1 SupervisorPreference rows (the manager's assignment;
+      // same definition as assignedGroupsCount in UsersService.findAll).
+      // COMPLETED groups no longer count, and the group being (re)assigned is excluded.
+      const assignedCount = await tx.supervisorPreference.count({
+        where: {
+          supervisorId,
+          preference: 1,
+          groupId: { not: groupId },
+          group: { status: { not: GroupStatus.COMPLETED } },
+        },
+      });
+      if (assignedCount >= sup.maxGroups) {
+        throw new BadRequestException(
+          `${sup.name ?? sup.email} already supervises ${assignedCount} of ${sup.maxGroups} allowed groups`,
+        );
+      }
+
+      // Replace all existing preferences with the manager's assignment
+      await tx.supervisorPreference.deleteMany({ where: { groupId } });
+      await tx.supervisorPreference.create({
+        data: { groupId, supervisorId, preference: 1 },
+      });
+      await tx.group.update({ where: { id: groupId }, data: { supervisorAssigned: true } });
+      return sup;
     });
-    const supervisorName = supervisor?.name ?? supervisor?.email ?? 'Your supervisor';
+    const supervisorName = supervisor.name ?? supervisor.email ?? 'Your supervisor';
 
     // Notify assigned supervisor
     console.log('Sending assignment notification to supervisor userId:', supervisorId);

@@ -70,59 +70,63 @@ Beyond the core workflow, Gradify layers in automation that saves staff time: bu
    cd gradify
    ```
 
-2. **Start PostgreSQL**
+2. **Configure environment variables**
    ```bash
-   docker-compose up -d
+   cp .env.example .env                    # database user/password for docker compose
+   cp backend/.env.example backend/.env    # fill in secrets + seed accounts
+   cp frontend/.env.example frontend/.env.local
+   ```
+   See [Environment Variables](#-environment-variables) below.
+
+3. **Start PostgreSQL**
+   ```bash
+   docker compose up -d
    ```
 
-3. **Install backend dependencies**
+4. **Install backend dependencies**
    ```bash
    cd backend
    npm install
    ```
 
-4. **Configure environment variables**
-
-   Create a `.env` file inside `backend/` (see [Environment Variables](#-environment-variables) below).
-
-5. **Apply the database schema**
+5. **Prepare the database** (schema + super admin, manager, academic structure, settings)
    ```bash
-   npx prisma db push
-   npx prisma generate
+   npm run db:setup
    ```
 
-6. **Seed initial data**
-   ```bash
-   node seed.js            # university, department, program, session, manager account
-   node seed-admin.js      # super admin account
-   node seed-settings.js   # system settings / feature flags
-   ```
-
-7. **Start the backend**
+6. **Start the backend**
    ```bash
    npm run start:dev       # runs on http://localhost:4000
    ```
 
-8. **Install & start the frontend** (in a new terminal)
+7. **Install & start the frontend** (in a new terminal)
    ```bash
    cd frontend
    npm install
    npm run dev              # runs on http://localhost:3000
    ```
 
-9. Open **http://localhost:3000** in your browser.
+8. Open **http://localhost:3000** in your browser.
+
+For deploying to a Linux server, see [DEPLOY.md](DEPLOY.md).
 
 ## 🔑 Environment Variables
 
-Set these in `backend/.env`:
+`backend/.env` (template: `backend/.env.example`). The backend refuses to start if a required value is missing:
 
 ```
-DATABASE_URL
-JWT_SECRET
-JWT_REFRESH_SECRET
-JWT_EXPIRES_IN
-GITHUB_TOKEN
+DATABASE_URL          # required
+JWT_SECRET            # required, >= 32 chars
+JWT_REFRESH_SECRET    # required, >= 32 chars, different from JWT_SECRET
+FRONTEND_URL          # required, allowed CORS origin(s), comma-separated
+PORT                  # optional, default 4000
+TRUST_PROXY           # optional, reverse-proxy hops, default 1
+SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD   # used by npm run db:setup
+MANAGER_EMAIL / MANAGER_PASSWORD           # used by npm run db:setup
+GITHUB_TOKEN          # optional, GitHub commit tracking
 ```
+
+`frontend/.env.local`: `NEXT_PUBLIC_API_URL` (backend URL, inlined at build time).
 
 ## 📁 Project Structure
 
@@ -167,7 +171,10 @@ gradify/
 │   ├── lib/                     # API client, auth store, utilities
 │   └── package.json
 │
-├── docker-compose.yml           # PostgreSQL container
+├── deploy/nginx.conf            # Sample nginx site (frontend at /, backend at /api)
+├── docker-compose.yml           # Local PostgreSQL container
+├── docker-compose.prod.yml      # Production stack: postgres + backend + frontend
+├── DEPLOY.md                    # Linux server deployment steps
 └── README.md
 ```
 

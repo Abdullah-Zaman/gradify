@@ -1,11 +1,21 @@
+// Seeds the university / department / program / session / FYP phases and the
+// MANAGER account. Manager credentials come from .env:
+//   MANAGER_EMAIL, MANAGER_PASSWORD
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const bcrypt = require('bcryptjs');
 
-const adapter = new PrismaPg({ 
-  connectionString: process.env.DATABASE_URL 
-});
+function requireEnv(name) {
+  const value = process.env[name] && process.env[name].trim();
+  if (!value) {
+    console.error(`Missing required environment variable: ${name}`);
+    process.exit(1);
+  }
+  return value;
+}
+
+const adapter = new PrismaPg({ connectionString: requireEnv('DATABASE_URL') });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
@@ -57,12 +67,13 @@ async function main() {
   console.log('FYP Phase:', fyp2.phase);
 
   // Manager user
-  const hashedPassword = await bcrypt.hash('Test@123', 12);
+  const managerEmail = requireEnv('MANAGER_EMAIL');
+  const hashedPassword = await bcrypt.hash(requireEnv('MANAGER_PASSWORD'), 12);
   const manager = await prisma.user.upsert({
-    where: { email: 'manager@gradify.com' },
+    where: { email: managerEmail },
     update: { universityId: university.id },
     create: {
-      email: 'manager@gradify.com',
+      email: managerEmail,
       name: 'FYP Manager',
       password: hashedPassword,
       role: 'MANAGER',
@@ -75,5 +86,5 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
+  .catch((err) => { console.error(err); process.exitCode = 1; })
   .finally(() => prisma.$disconnect());

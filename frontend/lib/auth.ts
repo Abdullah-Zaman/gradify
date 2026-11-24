@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { clearAuthCookies, setAuthCookie } from './cookies';
 
 export type UserRole = 'MANAGER' | 'SUPERVISOR' | 'STUDENT' | 'SUPER_ADMIN';
 
@@ -35,17 +36,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-    document.cookie = `auth_token=${token}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+    setAuthCookie('auth_token', token);
     // Lets the edge proxy gate first-login users without decoding the JWT body.
-    document.cookie = `first_login=${user.isFirstLogin ? '1' : '0'}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+    setAuthCookie('first_login', user.isFirstLogin ? '1' : '0');
     set({ token, user });
   },
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    document.cookie = 'auth_token=; path=/; max-age=0';
-    document.cookie = 'first_login=; path=/; max-age=0';
+    clearAuthCookies();
     set({ token: null, user: null });
   },
 }));

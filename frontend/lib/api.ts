@@ -1,7 +1,26 @@
 import axios from 'axios';
+import { clearAuthCookies, setAuthCookie } from './cookies';
+
+/**
+ * Backend base URL. NEXT_PUBLIC_* values are inlined at build time, so the
+ * production image must be built with NEXT_PUBLIC_API_URL set.
+ */
+export const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000')
+).replace(/\/+$/, '');
+
+if (!API_URL && typeof window !== 'undefined') {
+  console.error('NEXT_PUBLIC_API_URL was not set at build time; API calls will fail.');
+}
+
+/** Absolute URL for a backend-served file path such as "/uploads/tasks/x.pdf". */
+export function fileUrl(path: string): string {
+  return `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 const api = axios.create({
-  baseURL: 'http://localhost:4000',
+  baseURL: API_URL,
 });
 
 api.interceptors.request.use((config) => {
@@ -32,7 +51,7 @@ function clearSessionAndRedirect() {
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
-  document.cookie = 'auth_token=; path=/; max-age=0';
+  clearAuthCookies();
   window.location.replace('/login');
 }
 
@@ -68,14 +87,14 @@ api.interceptors.response.use(
 
     try {
       const res = await axios.post<{ accessToken: string; refreshToken: string }>(
-        'http://localhost:4000/auth/refresh',
+        `${API_URL}/auth/refresh`,
         { refreshToken },
       );
       const { accessToken, refreshToken: newRefreshToken } = res.data;
 
       localStorage.setItem('token', accessToken);
       if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
-      document.cookie = `auth_token=${accessToken}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+      setAuthCookie('auth_token', accessToken);
 
       processQueue(null, accessToken);
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;

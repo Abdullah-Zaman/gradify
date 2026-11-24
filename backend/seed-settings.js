@@ -1,6 +1,12 @@
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
-const adapter = new PrismaPg({ connectionString: 'postgresql://postgres:gradify123@localhost:5432/gradify' });
+
+if (!process.env.DATABASE_URL) {
+  console.error('Missing required environment variable: DATABASE_URL');
+  process.exit(1);
+}
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 const DEFAULTS = [
@@ -29,6 +35,6 @@ async function main() {
 }
 
 main()
-  .then(() => { console.log('Done.'); process.exit(0); })
-  .catch((e) => { console.error(e); process.exit(1); })
+  .then(() => console.log('Done.'))
+  .catch((e) => { console.error(e); process.exitCode = 1; })
   .finally(() => prisma.$disconnect());

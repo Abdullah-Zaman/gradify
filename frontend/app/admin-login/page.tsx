@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LayoutGrid } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore, type AuthUser } from '@/lib/auth';
+import { hasAuthCookie } from '@/lib/cookies';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -23,7 +24,7 @@ function decodeToken(token: string): AuthUser {
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { setAuth, token, user } = useAuthStore();
+  const { setAuth, logout, token, user } = useAuthStore();
   const [checking, setChecking] = useState(true);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +37,12 @@ export default function AdminLoginPage() {
         return u ? JSON.parse(u) : null;
       } catch { return null; }
     })();
-    if (stored && storedUser?.role === 'SUPER_ADMIN') {
+    // Stale localStorage session without the auth_token cookie would loop
+    // through the edge proxy, so clear it and show the form instead.
+    if (stored && storedUser?.role && !hasAuthCookie()) {
+      logout();
+      setChecking(false);
+    } else if (stored && storedUser?.role === 'SUPER_ADMIN') {
       router.replace('/dashboard/admin');
     } else {
       setChecking(false);

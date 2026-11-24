@@ -1,15 +1,24 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { requireEnv } from '../config/env';
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly client: PrismaClient;
 
   constructor() {
-    const connectionString = 'postgresql://postgres:gradify123@localhost:5432/gradify';
+    const connectionString = requireEnv('DATABASE_URL');
     const adapter = new PrismaPg({ connectionString });
     this.client = new PrismaClient({ adapter });
+  }
+
+  /** Interactive transaction passthrough; `tx` exposes the full model API. */
+  $transaction<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    options?: { maxWait?: number; timeout?: number; isolationLevel?: Prisma.TransactionIsolationLevel },
+  ): Promise<T> {
+    return this.client.$transaction(fn, options);
   }
 
   get user() {

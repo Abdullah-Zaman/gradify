@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -69,7 +69,7 @@ const ROLE_BADGE: Record<FypRole, string> = {
   DEVELOPMENT: '💻 Development',
 };
 
-export default function CreateMOMPage() {
+function CreateMOMPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultGroupId = searchParams.get('groupId') ?? '';
@@ -470,5 +470,15 @@ export default function CreateMOMPage() {
         </form>
       </div>
     </DashboardLayout>
+  );
+}
+
+// useSearchParams() must sit under a Suspense boundary or `next build` fails
+// prerendering this route (missing-suspense-with-csr-bailout).
+export default function CreateMOMPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" /></div>}>
+      <CreateMOMPageContent />
+    </Suspense>
   );
 }

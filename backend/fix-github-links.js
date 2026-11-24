@@ -1,13 +1,11 @@
 require('dotenv').config();
 const pg = require('pg');
 
-const pool = new pg.Pool({
-  host: 'localhost',
-  port: 5432,
-  database: 'gradify',
-  user: 'postgres',
-  password: 'gradify123',
-});
+if (!process.env.DATABASE_URL) {
+  console.error('Missing required environment variable: DATABASE_URL');
+  process.exit(1);
+}
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 async function main() {
   const client = await pool.connect();
