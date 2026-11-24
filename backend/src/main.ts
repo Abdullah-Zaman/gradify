@@ -16,8 +16,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Behind nginx / a load balancer: use X-Forwarded-For so req.ip (rate limiting,
-  // audit logs) is the real client IP. TRUST_PROXY defaults to 1 hop.
+  // Behind a reverse proxy (nginx, Tailscale Funnel): use X-Forwarded-For so req.ip
+  // (rate limiting, audit logs) is the real client IP. TRUST_PROXY defaults to 1 hop;
+  // start-live.ps1 sets "loopback" because Funnel's proxy connects from 127.0.0.1.
   const trustProxy = process.env.TRUST_PROXY ?? '1';
   app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
 
@@ -32,6 +33,14 @@ async function bootstrap() {
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
-  await app.listen(process.env.PORT ?? 4000);
+  // HOST=127.0.0.1 keeps the API reachable only through the local proxy (Funnel),
+  // so nobody on the LAN can bypass it and spoof X-Forwarded-For.
+  const port = Number(process.env.PORT ?? 4000);
+  const host = process.env.HOST?.trim();
+  if (host) await app.listen(port, host);
+  else await app.listen(port);
+  console.log(
+    `Gradify API listening on ${host ?? '*'}:${port} | CORS origins: ${allowedOrigins.join(', ')} | trust proxy: ${trustProxy}`,
+  );
 }
 bootstrap();
